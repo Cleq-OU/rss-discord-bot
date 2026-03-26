@@ -2,7 +2,7 @@ import { Client, EmbedBuilder, TextChannel } from "discord.js";
 import { parseFeed, getImageFromEntry, FeedEntry } from "@/services/rssService";
 import { saveLastProcessedGuid } from "@/utils/fileUtils";
 import { delay } from "@/utils/delay";
-import { TARGET_CHANNEL_ID, RSS_FEED_URL } from "@/config";
+import { TARGET_CHANNEL_ID, RSS_FEED_URL, RSS_POST_MODE } from "@/config";
 
 let lastProcessedGuid: string | null = null;
 
@@ -30,32 +30,50 @@ function extractGuid(entry: FeedEntry): string {
 }
 
 /**
+ * Posts a single entry as a Discord embed.
+ */
+async function postAsEmbed(channel: TextChannel, entry: FeedEntry) {
+  const title = (entry.title as string) || "No Title";
+  const link = (entry.link as string) || "";
+  const imageUrl = getImageFromEntry(entry);
+
+  const embedDiscord = new EmbedBuilder()
+    .setTitle(title)
+    .setURL(link)
+    .setColor(0x0099ff);
+
+  if (imageUrl) embedDiscord.setImage(imageUrl);
+  if (entry.isoDate) embedDiscord.setTimestamp(new Date(entry.isoDate as string));
+
+  await channel.send({ embeds: [embedDiscord] });
+}
+
+/**
+ * Posts a single entry as a plain link message.
+ */
+async function postAsLink(channel: TextChannel, entry: FeedEntry) {
+  const link = (entry.link as string) || "";
+  if (!link) throw new Error("Entry has no link to post.");
+  await channel.send(`New Post!\n${link}`);
+}
+
+/**
  * Posts new RSS feed items to the specified Discord channel.
- * @param channel The Discord text channel.
- * @param items The new feed entries to post.
+ * Mode is controlled by RSS_POST_MODE env: "embed" (default) | "link"
  */
 async function postNewItemsToChannel(channel: TextChannel, items: FeedEntry[]) {
+  const mode = RSS_POST_MODE === "link" ? "link" : "embed"; // default to embed
+
   for (const entry of items) {
     const title = (entry.title as string) || "No Title";
-    const link = (entry.link as string) || "";
-    const imageUrl = getImageFromEntry(entry);
-    const embedDiscord = new EmbedBuilder()
-      .setTitle(title)
-      .setURL(link)
-      .setColor(0x0099ff);
-    if (imageUrl) {
-      embedDiscord.setImage(imageUrl);
-    }
-    if (entry.isoDate) {
-      embedDiscord.setTimestamp(new Date(entry.isoDate as string));
-    }
     try {
-      await channel.send({ embeds: [embedDiscord] });
+      if (mode === "link") {
+        await postAsLink(channel, entry);
+      } else {
+        await postAsEmbed(channel, entry);
+      }
     } catch (discordError) {
-      console.error(
-        `Failed to send message to Discord for '${title}':`,
-        discordError
-      );
+      console.error(`Failed to send message to Discord for '${title}':`, discordError);
     }
     await delay(3000);
   }
