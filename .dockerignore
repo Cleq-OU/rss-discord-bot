@@ -13,3 +13,4 @@ dist
 *.ts
 *.log
 .env
+.kamal

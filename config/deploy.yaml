@@ -1,0 +1,32 @@
+service: cleq-website-rss-bot-discord
+image: cleq-ou/website-rss-bot-discord
+
+servers:
+  web:
+    hosts:
+      - 209.38.103.217
+    proxy: false
+
+registry:
+  server: ghcr.io
+  username: tegarsantosa
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+  context: .
+  dockerfile: Dockerfile
+
+env:
+  clear:
+    NODE_ENV: production
+    RSS_FEED_URL: https://cleq.io/en/feed
+    RSS_POST_MODE: link
+
+  secret:
+    - DISCORD_BOT_TOKEN
+    - DISCORD_CHANNEL_ID
+
+ssh:
+  user: root
